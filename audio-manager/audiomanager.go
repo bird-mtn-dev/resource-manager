@@ -11,6 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/audio/mp3"
 	"github.com/hajimehoshi/ebiten/v2/audio/vorbis"
 	"github.com/hajimehoshi/ebiten/v2/audio/wav"
+	"golang.org/x/exp/maps"
 )
 
 type AudioManager struct {
@@ -120,4 +121,9 @@ func (fm *AudioManager) GetPlayer(name string, options ...AudioOpt) (*audio.Play
 		player.SetVolume(opts.volume)
 	}
 	return player, err
+}
+
+// This function will remove all loaded audio file paths in this Manager.
+func (fm *AudioManager) Clear() {
+	maps.Clear(fm.audioFiles)
 }

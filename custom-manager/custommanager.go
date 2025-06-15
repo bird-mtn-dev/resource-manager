@@ -24,6 +24,7 @@ func (fm *CustomManager[T]) Remove(key string) {
 	delete(fm.customCache, key)
 }
 
-func (fm *CustomManager[T]) PurgeCache() {
+// This function will remove all custom data in this Manager
+func (fm *CustomManager[T]) Clear() {
 	maps.Clear(fm.customCache)
 }

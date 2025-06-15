@@ -56,6 +56,7 @@ func (fm *ImageManager) Remove(key string) {
 	delete(fm.imageCache, key)
 }
 
-func (im *ImageManager) PurgeCache() {
+// This function will remove all images in this Manager.
+func (im *ImageManager) Clear() {
 	maps.Clear(im.imageCache)
 }

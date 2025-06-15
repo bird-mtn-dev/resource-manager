@@ -1,16 +1,15 @@
 package fontmanager
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"io/fs"
 	"os"
 	"strconv"
 
-	"github.com/golang/freetype/truetype"
-	"github.com/hajimehoshi/ebiten/v2/text"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"golang.org/x/exp/maps"
-	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/gobold"
 	"golang.org/x/image/font/gofont/gobolditalic"
 	"golang.org/x/image/font/gofont/goitalic"
@@ -23,8 +22,8 @@ import (
 
 type FontManager struct {
 	FS        fs.FS
-	fonts     map[string]*truetype.Font
-	fontCache map[string]*font.Face
+	fonts     map[string]*text.GoTextFaceSource
+	fontCache map[string]*text.GoTextFace
 }
 
 const (
@@ -44,7 +43,7 @@ func Create() *FontManager {
 }
 
 func CreateWithFS(filesystem fs.FS) *FontManager {
-	return &FontManager{FS: filesystem, fonts: make(map[string]*truetype.Font), fontCache: make(map[string]*font.Face)}
+	return &FontManager{FS: filesystem, fonts: make(map[string]*text.GoTextFaceSource), fontCache: make(map[string]*text.GoTextFace)}
 }
 
 // This function loads the standard san-serif gofonts into the manager
@@ -53,25 +52,25 @@ func CreateWithFS(filesystem fs.FS) *FontManager {
 //
 // see https://pkg.go.dev/golang.org/x/image/font/gofont
 func (fm *FontManager) LoadStandardFonts() error {
-	ttfFont, err := truetype.Parse(goregular.TTF)
+	ttfFont, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
 	if err != nil {
 		return nil
 	}
 	fm.fonts[STANDARD_NORMAL] = ttfFont
 
-	ttfFont, err = truetype.Parse(goitalic.TTF)
+	ttfFont, err = text.NewGoTextFaceSource(bytes.NewReader(goitalic.TTF))
 	if err != nil {
 		return nil
 	}
 	fm.fonts[STANDARD_ITALIC] = ttfFont
 
-	ttfFont, err = truetype.Parse(gobold.TTF)
+	ttfFont, err = text.NewGoTextFaceSource(bytes.NewReader(gobold.TTF))
 	if err != nil {
 		return nil
 	}
 	fm.fonts[STANDARD_BOLD] = ttfFont
 
-	ttfFont, err = truetype.Parse(gobolditalic.TTF)
+	ttfFont, err = text.NewGoTextFaceSource(bytes.NewReader(gobolditalic.TTF))
 	if err != nil {
 		return nil
 	}
@@ -86,25 +85,25 @@ func (fm *FontManager) LoadStandardFonts() error {
 //
 // see https://pkg.go.dev/golang.org/x/image/font/gofont
 func (fm *FontManager) LoadMonoFonts() error {
-	ttfFont, err := truetype.Parse(gomono.TTF)
+	ttfFont, err := text.NewGoTextFaceSource(bytes.NewReader(gomono.TTF))
 	if err != nil {
 		return nil
 	}
 	fm.fonts[MONO_NORMAL] = ttfFont
 
-	ttfFont, err = truetype.Parse(gomonoitalic.TTF)
+	ttfFont, err = text.NewGoTextFaceSource(bytes.NewReader(gomonoitalic.TTF))
 	if err != nil {
 		return nil
 	}
 	fm.fonts[MONO_ITALIC] = ttfFont
 
-	ttfFont, err = truetype.Parse(gomonobold.TTF)
+	ttfFont, err = text.NewGoTextFaceSource(bytes.NewReader(gomonobold.TTF))
 	if err != nil {
 		return nil
 	}
 	fm.fonts[MONO_BOLD] = ttfFont
 
-	ttfFont, err = truetype.Parse(gomonobolditalic.TTF)
+	ttfFont, err = text.NewGoTextFaceSource(bytes.NewReader(gomonobolditalic.TTF))
 	if err != nil {
 		return nil
 	}
@@ -113,6 +112,7 @@ func (fm *FontManager) LoadMonoFonts() error {
 	return nil
 }
 
+// This function loads a font at the provided filesystem path.
 func (fm *FontManager) LoadFont(name string, path string) error {
 	fontFile, _ := fm.FS.Open(path)
 	fontData, err := io.ReadAll(fontFile)
@@ -122,8 +122,9 @@ func (fm *FontManager) LoadFont(name string, path string) error {
 	return fm.LoadFontData(name, fontData)
 }
 
+// This function loads a font from the provided byte array
 func (fm *FontManager) LoadFontData(name string, fontData []byte) error {
-	ttfFont, err := truetype.Parse(fontData)
+	ttfFont, err := text.NewGoTextFaceSource(bytes.NewReader(fontData))
 	if err != nil {
 		return err
 	}
@@ -132,38 +133,39 @@ func (fm *FontManager) LoadFontData(name string, fontData []byte) error {
 	return nil
 }
 
-func (fm *FontManager) GetFace(name string, size float64) (font.Face, error) {
+// This function returns a font face for the loaded font with 'name'. It will cache this face for future use.
+func (fm *FontManager) GetFace(name string, size float64) (text.Face, error) {
 
 	cachedFace, exists := fm.fontCache[name+strconv.FormatFloat(size, 'f', -1, 64)]
 	if exists {
-		return *cachedFace, nil
+		return cachedFace, nil
 	}
 
 	ttfFont, exists := fm.fonts[name]
 	if !exists {
 		return nil, errors.New("Font not found: " + name)
 	}
-	face := truetype.NewFace(ttfFont, &truetype.Options{
-		Size:    size,
-		DPI:     72,
-		Hinting: font.HintingFull,
-	})
-	fm.fontCache[name+strconv.FormatFloat(size, 'f', -1, 64)] = &face
+
+	face := &text.GoTextFace{
+		Source: ttfFont,
+		Size:   size,
+	}
+	fm.fontCache[name+strconv.FormatFloat(size, 'f', -1, 64)] = face
 	return face, nil
 }
 
-func (fm *FontManager) GetFaceWithSpacing(name string, size float64, lineHeight float64) (font.Face, error) {
-	face, err := fm.GetFace(name, size)
-	if err != nil {
-		return nil, err
-	}
-	if lineHeight > 1 {
-		h := float64(face.Metrics().Height.Round()) * lineHeight
-		face = text.FaceWithLineHeight(face, h)
-	}
-	return face, nil
-}
-
+// This function will clear the font cache
 func (fm *FontManager) PurgeCache() {
 	maps.Clear(fm.fontCache)
+}
+
+// This function will remove the specified font data
+func (fm *FontManager) Remove(key string) {
+	delete(fm.fonts, key)
+}
+
+// This function will remove all font data and the font cache in this Manager.
+func (fm *FontManager) Clear() {
+	maps.Clear(fm.fontCache)
+	maps.Clear(fm.fonts)
 }

@@ -65,6 +65,7 @@ func (fm *JSONManager[T]) Remove(key string) {
 	delete(fm.jsonCache, key)
 }
 
-func (fm *JSONManager[T]) PurgeCache() {
+// This function will remove all json data in this Manager.
+func (fm *JSONManager[T]) Clear() {
 	maps.Clear(fm.jsonCache)
 }
