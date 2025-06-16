@@ -27,6 +27,6 @@ Maintainers
 
 Contributing
 -------
-Want to help improve the template? Check out our [current issues](https://github.com/bird-mtn-dev/ebitengine_template/issues). 
+Want to help improve the template? Check out our [current issues](https://github.com/bird-mtn-dev/resource-manager/issues). 
 
 Want to know the steps on how to start contributing, take a look at the [open source guide](https://opensource.guide/how-to-contribute/).
